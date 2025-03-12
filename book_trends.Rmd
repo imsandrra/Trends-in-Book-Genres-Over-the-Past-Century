@@ -1,0 +1,161 @@
+---
+title: "Trends in Book Genres Over the Past Century"
+author: "Oleksandra Krykun"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+## Introduction
+
+In this report, I present an analysis of the "Best Books Ever" dataset from Kaggle, available at [this link](https://www.kaggle.com/datasets/pooriamst/best-books-ever-dataset). 
+
+The focus of this analysis is to explore **trends in book genres** over the period from 1916 to 2017 and its **distribution**. This involved extensive data cleaning and engineering to prepare the dataset for visualization.
+
+---
+
+## Importing Libraries and Data
+
+Before diving into the analysis, we need to load the necessary libraries and the dataset. The following libraries are used for data manipulation, visualization, and interactive plotting:
+
+```{r}
+# Install necessary packages (if not already installed)
+
+# install.packages("plotly")
+# install.packages("dplyr")
+# install.packages("tidyverse")
+# install.packages("ggplot2")
+# install.packages("lubridate")
+
+# Load libraries
+suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(plotly))
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(lubridate))
+
+# Load the dataset
+books <- read.csv("C:\\Users\\kriku\\Documents\\Data Projets\\book_analysis_in_R\\books_1.Best_Books_Ever.csv")
+```
+
+## Data Preparation
+
+**Step 1: Filtering and Cleaning Genre Data**
+
+To analyze genre trends, we first extract relevant columns (bookId, genres, and firstPublishDate), clean the data, and transform the firstPublishDate into a usable format. We also ensure that rows with missing or invalid data are removed.
+
+```{r}
+suppressWarnings(
+genre_data <- books %>%
+  select(bookId, genres, firstPublishDate) %>%
+  filter(!is.na(genres) & genres != "[]" & !is.na(firstPublishDate) & firstPublishDate != "") %>% 
+  separate_rows(genres, sep = ", ")  %>% 
+  mutate(genres = gsub("[[:punct:]]", "", genres),
+         firstPublishDate = substr(firstPublishDate, 7, 8),            # select the year part of the date
+         firstPublishDate = ifelse(as.numeric(firstPublishDate) > 15,  # convert to full year
+                                   paste0("19", firstPublishDate),  
+                                   paste0("20", firstPublishDate)),
+         firstPublishDate = paste0(firstPublishDate, "-01-01"),
+         firstPublishDate = year(ymd(firstPublishDate)))  %>% 
+  filter(!is.na(firstPublishDate)) %>% 
+  arrange(desc(firstPublishDate))  
+)
+
+# view(genre_data)
+```
+
+**Step 2: Selecting Top 5 Genres per Year**
+
+To simplify the visualization, we focus on the top 5 most popular genres for each year.
+
+```{r}
+df_top5 <- genre_data %>%
+  group_by(firstPublishDate, genres) %>%
+  summarise(count = n(), .groups = 'drop') %>%
+  group_by(firstPublishDate) %>%
+  slice_max(order_by = count, n = 5) %>% 
+  ungroup() 
+
+# view(df_top5)
+```
+
+**Step 3: Counting Total Books Published per Year**
+
+We also create a separate dataframe to track the total number of books published each year.
+
+```{r}
+year_count <- genre_data %>% 
+  select(bookId, firstPublishDate) %>% 
+  distinct(bookId, .keep_all = TRUE) %>% 
+  count(firstPublishDate) %>% 
+  suppressWarnings(
+  mutate(firstPublishDate = paste0(firstPublishDate, "-01-01"),
+         firstPublishDate = year(ymd(firstPublishDate)))
+  )
+
+# view(year_count)
+```
+
+## Visualizing Genre Trends Over Time
+
+We combine the top 5 genres and the total number of books published into a single plot to visualize trends over time.
+
+```{r, fig.width=10, fig.height=6}
+ggplot() +
+  geom_area(data = df_top5, aes(x = firstPublishDate, y = count, fill = genres), 
+            position = "stack", alpha = 0.8) +
+  geom_line(data = year_count, aes(x = firstPublishDate, y = n), 
+            color = "black", linewidth = 1) +
+  labs(title = "Top 5 Genres and Total Number of Books Published Over Time",
+       x = "Year",
+       y = "Number of Books",
+       fill = "Genre") +
+  theme_minimal()
+```
+
+### Distribution of the **book's genre**
+
+```{r}
+# Create the dataframe of genres counts
+top_genres <- genre_data %>%
+  separate_rows(genres, sep = ", ") %>%
+  mutate(genres = gsub("[[:punct:]]", "", genres)) %>%
+  count(genres, sort = TRUE) %>%
+  slice_max(n, n = 30)
+
+# Define custom colors for the pie chart
+colors <- c('#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
+            '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
+            '#aec7e8', '#ffbb78', '#98df8a', '#ff9896', '#c5b0d5',
+            '#c49c94', '#f7b6d2', '#c7c7c7', '#dbdb8d', '#9edae5')
+
+# Create the enhanced pie chart
+plot_ly(data = top_genres, 
+        labels = ~genres, 
+        values = ~n, 
+        type = "pie",
+        textinfo = "label+percent", 
+        hoverinfo = "label+percent+value", 
+        marker = list(colors = colors, line = list(color = '#FFFFFF', width = 1)),
+        textposition = "inside", 
+        insidetextfont = list(color = '#FFFFFF'), hole = 0.3) %>% 
+  layout(title = "Top 25 Genres by Book Count", 
+         showlegend = TRUE, 
+         legend = list(font = list(size = 12)),
+         margin = list(t = 50, b = 50, l = 50, r = 50)
+         ) 
+```
+
+## Conclusion
+
+This analysis reveals key trends in book genres and its distribution over the past century:
+
+- **Rising Popularity**: Genres such as Young Adult, Fantasy, Fiction, and Romance have seen increasing popularity
+
+- **Declining Genres**: In contrast, genres like Novels, Historical Fiction and 20th Century literature have experienced a notable decline, suggesting a shift in literary tastes over time.
+
+- **Dominant Genres**: Fiction (14.9%) and Fantasy (6.23%) remain the most dominant genres, consistently leading in book publications. Classics, Novels, and Young Adult also hold significant shares, as illustrated by the area plot.
+
+- **Overall Growth**: The steady rise in total book publications over the years underscores the expanding literary landscape and the growing diversity of genres available to readers.
+
+_linkedin_: https://www.linkedin.com/in/oleksandra-krykun-0b45552a1/
