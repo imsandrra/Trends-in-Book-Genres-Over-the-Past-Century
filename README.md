@@ -46,6 +46,9 @@ The dataset provides publication dates in the format **mm/dd/yy** (e.g., 04/25/1
    ```
 3. Load the dataset and run the scripts for analysis and visualization.
 
+### Result Project
+You are welcomed to see the final result project using this link[https://rpubs.com/imsandrra/1284402]
+
 ## Conclusion
 This project provides valuable insights into book genre trends over time. However, due to the uncertainty in date formatting, the focus should remain on technical execution rather than drawing historical conclusions.
 
